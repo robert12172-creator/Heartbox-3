@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HeartBox • Public MVP</title>
+  <link rel="icon" href="./assets/heartbox.svg" />
+  <style>
+    :root { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; }
+    body { margin:0; background:#0b1020; color:#fff; }
+    .wrap { max-width: 860px; margin: 48px auto; padding: 24px; }
+    .card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 28px; box-shadow: 0 12px 30px rgba(0,0,0,0.35); }
+    .logo { display:flex; align-items:center; gap:14px; }
+    .logo img { width:44px; height:44px; }
+    .pill { display:inline-block; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.1); font-size:12px; letter-spacing:.3px; }
+    .actions { display:flex; gap:12px; margin-top:20px; flex-wrap:wrap; }
+    .btn { padding:12px 16px; border-radius:12px; border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.12); color:#fff; text-decoration:none; font-weight:600 }
+    .btn.primary{ background:#ff3b61; border-color:#ff5c7a; }
+    .list { margin: 18px 0 0 0; padding-left:20px; }
+    .footer { opacity: .7; font-size: 12px; margin-top: 30px; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-top:14px; }
+    .tile { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 16px; }
+    code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="logo">
+        <img alt="HeartBox" src="./assets/heartbox.svg" />
+        <h1 style="margin:0;">HeartBox — Public MVP</h1>
+      </div>
+      <p class="pill">Build: Public demo • React (no build step)</p>
+      <p>Welcome, friends & family! Record and save messages to future moments. This lightweight demo runs from a single file so it's easy to test.</p>
+      <div class="grid">
+        <div class="tile">
+          <strong>Record</strong>
+          <p>Capture an audio message and preview before saving.</p>
+        </div>
+        <div class="tile">
+          <strong>Schedule</strong>
+          <p>Pick a future date to deliver to loved ones.</p>
+        </div>
+        <div class="tile">
+          <strong>Store</strong>
+          <p>Saves to backend when connected. In this demo, messages save in memory.</p>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn primary" href="#" onclick="startRecord()">Start Recording</a>
+        <a class="btn" href="#" onclick="stopRecord()">Stop</a>
+        <a class="btn" href="#" onclick="saveMessage()">Save</a>
+      </div>
+      <audio id="player" controls style="margin-top:16px; width:100%"></audio>
+      <ul class="list" id="log"></ul>
+      <p class="footer">Backend API URL (optional): <code id="api"></code></p>
+    </div>
+  </div>
+
+  <script>
+    const log = (msg)=>{ document.getElementById('log').innerHTML += '<li>'+msg+'</li>'; }
+    const api = (new URLSearchParams(window.location.search)).get("api") || (location.origin.indexOf("onrender.com")>-1 ? location.origin.replace(/(https?:\/\/)([^.]+)-web/,'$1$2-api') : "");
+    document.getElementById('api').textContent = api || "(none)";
+    let mediaRecorder, chunks=[];
+
+    async function startRecord(){
+      const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => chunks.push(e.data);
+      mediaRecorder.onstop = e => {
+        const blob = new Blob(chunks, { 'type' : 'audio/ogg; codecs=opus' });
+        chunks = [];
+        document.getElementById('player').src = URL.createObjectURL(blob);
+        window._lastBlob = blob;
+      };
+      mediaRecorder.start();
+      log('Recording…');
+    }
+    function stopRecord(){
+      if(mediaRecorder && mediaRecorder.state !== 'inactive'){ mediaRecorder.stop(); log('Stopped.'); }
+    }
+    async function saveMessage(){
+      if(!window._lastBlob){ return log('Nothing recorded yet.'); }
+      if(!api){ return log('No API configured. Add ?api=https://YOUR-API.onrender.com'); }
+      const buf = await window._lastBlob.arrayBuffer();
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const res = await fetch(api + '/api/messages', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ data:b64, mime:'audio/ogg' }) });
+      const json = await res.json().catch(()=>({}));
+      log('Saved → ' + JSON.stringify(json));
+    }
+  </script>
+</body>
+</html>
