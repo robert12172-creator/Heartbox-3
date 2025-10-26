@@ -1,0 +1,26 @@
+# Render Blueprint for HeartBox
+services:
+  # Backend API (Node + Express)
+  - type: web
+    name: robert12172-creator-api
+    runtime: node
+    plan: free
+    rootDir: developer_build/server
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: MONGODB_URI
+        sync: false  # set this in the Render dashboard during first deploy
+
+  # Frontend (static, built with Vite)
+  - type: web
+    name: robert12172-creator
+    runtime: static
+    rootDir: developer_build/client
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://robert12172-creator-api.onrender.com
